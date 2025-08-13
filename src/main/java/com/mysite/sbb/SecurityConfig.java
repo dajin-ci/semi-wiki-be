@@ -13,41 +13,41 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
+
 	@Bean
 	SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http
-			.authorizeHttpRequests((authorizeHttpRequests)
-					-> authorizeHttpRequests
+				.authorizeHttpRequests(auth -> auth
+						// 지금은 전부 허용. 컨트롤러의 @PreAuthorize로 보호 중
 						.requestMatchers(new AntPathRequestMatcher("/**")).permitAll())
-			.csrf((csrf) -> csrf
-					.ignoringRequestMatchers(new AntPathRequestMatcher("/h2-"
-							+ "console/**")))
-			.headers((headers) -> headers
-					.addHeaderWriter(new XFrameOptionsHeaderWriter(
-							XFrameOptionsHeaderWriter.XFrameOptionsMode.SAMEORIGIN)))
-			.formLogin((formLogin) -> formLogin
-					.loginPage("/user/login")
-					.defaultSuccessUrl("/"))
-			.logout((logout) -> logout
-					.logoutRequestMatcher(new AntPathRequestMatcher("/user/logout"))
-					.logoutSuccessUrl("/")
-					.invalidateHttpSession(true))
-			;
+				.csrf(csrf -> csrf
+						.ignoringRequestMatchers(new AntPathRequestMatcher("/h2-console/**")))
+				.headers(headers -> headers
+						.addHeaderWriter(new XFrameOptionsHeaderWriter(
+								XFrameOptionsHeaderWriter.XFrameOptionsMode.SAMEORIGIN)))
+				.formLogin(form -> form
+						.loginPage("/user/login") // GET 폼
+						.loginProcessingUrl("/user/login") // ★ POST 처리 경로
+						.defaultSuccessUrl("/"))
+				.logout(logout -> logout
+						.logoutRequestMatcher(new AntPathRequestMatcher("/user/logout"))
+						.logoutSuccessUrl("/")
+						.invalidateHttpSession(true));
+
 		return http.build();
 	}
-	
+
 	@Bean
 	PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
 	}
-	
+
 	@Bean
-	AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
-		return authenticationConfiguration.getAuthenticationManager();
+	AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
+		return cfg.getAuthenticationManager();
 	}
 }
