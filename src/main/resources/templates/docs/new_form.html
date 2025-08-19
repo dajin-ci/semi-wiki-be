@@ -29,11 +29,7 @@
                 <textarea class="form-control" rows="2" th:field="*{summary}" placeholder="간략 설명"></textarea>
             </div>
 
-            <!-- 슬러그(선택: 미입력 시 자동 생성) -->
-            <div>
-                <label class="form-label">슬러그(선택)</label>
-                <input class="form-control" type="text" th:field="*{slug}" placeholder="예: ragnar-lothbrok" />
-            </div>
+
 
             <!-- 섹션들(간단히 3개 고정 필드) -->
             <div class="border rounded p-3">
@@ -43,7 +39,7 @@
                     <input class="form-control" type="text" th:field="*{sections[0].heading}" placeholder="예: 개요" />
                 </div>
                 <div>
-                    <label class="form-label">내용(Markdown)</label>
+                    <label class="form-label">내용</label>
                     <textarea class="form-control" rows="4" th:field="*{sections[0].contentMd}"
                         placeholder="내용"></textarea>
                 </div>

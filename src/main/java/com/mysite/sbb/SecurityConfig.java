@@ -32,10 +32,10 @@ public class SecurityConfig {
 				.formLogin(form -> form
 						.loginPage("/user/login") // GET 폼
 						.loginProcessingUrl("/user/login") // ★ POST 처리 경로
-						.defaultSuccessUrl("/"))
+						.defaultSuccessUrl("/docs", true))
 				.logout(logout -> logout
 						.logoutRequestMatcher(new AntPathRequestMatcher("/user/logout"))
-						.logoutSuccessUrl("/")
+						.logoutSuccessUrl("/docs")
 						.invalidateHttpSession(true));
 
 		return http.build();

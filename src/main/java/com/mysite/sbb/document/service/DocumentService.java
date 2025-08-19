@@ -14,8 +14,10 @@ import com.mysite.sbb.document.repository.DocumentSectionRepository;
 import com.mysite.sbb.document.util.SlugGenerator;
 import com.mysite.sbb.user.SiteUser;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -111,32 +113,63 @@ public class DocumentService {
         revisionRepo.save(r);
     }
 
+    /** 작성자 권한 확인 (수정/삭제 공통) */
+    private void assertAuthor(Document doc, SiteUser user, String action) {
+        if (doc.getCreatedBy() == null || user == null ||
+                !doc.getCreatedBy().getUsername().equals(user.getUsername())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, action + " 권한이 없습니다.");
+        }
+    }
+
     /** 수정 + 리비전 */
     @Transactional
-    public void update(String slug, String newTitle, String newSummary, List<SectionDto> sections, SiteUser editor) {
-        Document doc = docRepo.findBySlug(slug)
+    public void update(String slug, String newTitle, String newSummary,
+            List<SectionDto> sections, SiteUser editor) {
+
+        // 🔹 섹션까지 함께 가져오기
+        Document doc = docRepo.findBySlugWithSections(slug)
                 .orElseThrow(() -> new IllegalArgumentException("document not found"));
 
-        // 기존 섹션 삭제 후 재삽입(MVP)
-        sectionRepo.deleteAll(sectionRepo.findByDocumentOrderByOrderIndexAsc(doc));
-
+        // 🔹 제목/요약 갱신
         doc.setTitle(newTitle);
         doc.setSummary(newSummary);
+        doc.setUpdatedAt(LocalDateTime.now());
 
+        // 🔹 이전 섹션 전량 제거 (orphanRemoval=true 이므로 DB에서 자동 삭제)
+        doc.getSections().clear();
+
+        // 🔹 새 섹션 삽입 (orderIndex 재부여)
         int i = 0;
         for (SectionDto s : sections) {
             DocumentSection sec = new DocumentSection();
-            sec.setDocument(doc);
+            sec.setDocument(doc); // 관계 설정
             sec.setOrderIndex(i++);
             sec.setHeading(s.heading());
             sec.setContentMd(s.contentMd());
             sec.setCreatedAt(LocalDateTime.now());
             sec.setUpdatedAt(LocalDateTime.now());
-            sectionRepo.save(sec);
+            doc.getSections().add(sec); // 컬렉션에 추가(중요)
         }
-        doc.setUpdatedAt(LocalDateTime.now());
 
+        // 🔹 리비전 저장 (스냅샷은 doc.getSections() 기준이라 중복 없이 저장됩니다)
         saveRevision(doc, editor, snapshot(doc), nextVersion(doc));
+    }
+
+    /** 삭제 (섹션/리비전 정리 후 문서 삭제) */
+    @Transactional
+    public void delete(String slug, SiteUser requester) {
+        Document doc = docRepo.findBySlug(slug)
+                .orElseThrow(() -> new IllegalArgumentException("document not found"));
+
+        // ★ 작성자만 삭제 가능
+        assertAuthor(doc, requester, "삭제");
+
+        // 자식 먼저 정리(캐스케이드가 설정되어 있지 않은 경우)
+        revisionRepo.deleteAll(revisionRepo.findByDocumentOrderByVersionDesc(doc));
+        sectionRepo.deleteAll(sectionRepo.findByDocumentOrderByOrderIndexAsc(doc));
+        // 댓글이 있다면: commentRepo.deleteAllByDocument(doc);
+
+        docRepo.delete(doc);
     }
 
     /** 슬러그 유니크 보장 */
@@ -148,4 +181,20 @@ public class DocumentService {
         }
         return candidate;
     }
+
+    @Transactional
+    public Document getOrCreateForQuestion(com.mysite.sbb.question.Question q,
+            com.mysite.sbb.user.SiteUser authorIfCreate) {
+        String slug = "q-" + q.getId();
+        return docRepo.findBySlug(slug).orElseGet(() -> {
+            var dto = new com.mysite.sbb.document.dto.DocumentCreateDto(
+                    q.getSubject(), null, null,
+                    java.util.List.of(new com.mysite.sbb.document.dto.SectionDto("개요", q.getContent())),
+                    slug);
+            // 질문 작성자를 fallback으로 사용
+            SiteUser author = (authorIfCreate != null) ? authorIfCreate : q.getAuthor();
+            return create(dto, author);
+        });
+    }
+
 }

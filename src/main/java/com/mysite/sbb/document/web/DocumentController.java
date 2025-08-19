@@ -96,4 +96,13 @@ public class DocumentController {
         model.addAttribute("revisions", revs);
         return "docs/history";
     }
+
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/{slug}/delete")
+    public String delete(@PathVariable String slug, Principal principal) {
+        var me = userService.getUser(principal.getName());
+        documentService.delete(slug, me);
+        return "redirect:/docs";
+    }
+
 }

@@ -18,9 +18,6 @@ public class DocumentCreateForm {
 
     private String summary;
 
-    /** 비워두면 title 기반으로 자동 생성 */
-    private String slug;
-
     /** 간단 버전: 섹션 1개를 기본 제공 */
     private List<SectionInner> sections = new ArrayList<>();
 
@@ -46,6 +43,6 @@ public class DocumentCreateForm {
                         s.getContentMd() == null ? "" : s.getContentMd()));
             }
         }
-        return new DocumentCreateDto(title, summary, null, list, slug);
+        return new DocumentCreateDto(title, summary, null, list, null);
     }
 }
